@@ -41,7 +41,7 @@ jobs:
 
       - name: Run Code Review with Claude
         id: code-review
-        uses: anthropics/claude-code-base-action@beta
+        uses: anthropics/claude-code-action@beta
         with:
           prompt: |
             ${{ env.RULES }}
