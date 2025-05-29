@@ -41,7 +41,7 @@ jobs:
 
       - name: Run Code Review with Claude
         id: code-review
-        uses: anthropics/claude-code-action@beta
+        uses: anthropics/claude-code-base-action@beta
         with:
           prompt: |
             ${{ env.RULES }}
@@ -60,6 +60,56 @@ jobs:
           allowed_tools: "Bash(git diff --name-only HEAD~1),Bash(git diff HEAD~1),View,GlobTool,GrepTool,Write"
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           timeout_minutes: "30"
+
+      - name: Extract and Comment PR Review
+        if: steps.code-review.outputs.conclusion == 'success'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const executionFile = '/tmp/claude-execution-output.json';
+
+            let executionLog;
+            try {
+              const fileContents = fs.readFileSync(executionFile, 'utf8');
+              executionLog = JSON.parse(fileContents);
+            } catch (error) {
+              console.log("Failed to read or parse Claude output:", error);
+              return;
+            }
+
+            let review = '';
+
+            for (let i = executionLog.length - 1; i >= 0; i--) {
+              const entry = executionLog[i];
+              if (entry.type === 'assistant' && entry.message?.role === 'assistant') {
+                const contentBlocks = entry.message.content;
+                if (Array.isArray(contentBlocks)) {
+                  review = contentBlocks
+                    .filter(block => block.type === 'text')
+                    .map(block => block.text)
+                    .join('\n\n');
+                }
+                break;
+              }
+            }
+
+            if (review) {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: review
+              });
+            } else {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: "⚠️ No review content found in assistant message. Please check if the Claude output file has content."
+              });
+            }
 
   # Job 2: Manual Claude trigger via @claude in comments
   claude-code-action:
@@ -84,4 +134,4 @@ jobs:
         uses: anthropics/claude-code-action@beta
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          timeout_minutes: "60"
+          timeout_minutes: "30"
