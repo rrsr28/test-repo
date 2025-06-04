@@ -44,9 +44,38 @@ To use this workflow in your repository:
 
 The workflow is configured with:
 - **Timeout**: 45 minutes for complex analysis
-- **Tools**: Access to git commands, file operations, and GitHub CLI
+- **Tools**: Access to comprehensive git commands, file operations, and GitHub CLI
 - **Smart Skip**: Automatically skips if no commits are found in the analysis period
+- **Enhanced Branch Handling**: Explicitly checks out the default branch and verifies git status
+- **Robust Git Operations**: Includes status checks, branch verification, and improved error handling
+
+## Latest Improvements
+
+### Version 2.0 Enhancements (June 4, 2025)
+
+The workflow has been enhanced with several key improvements:
+
+#### 🔧 **Enhanced Git Operations**
+- **Explicit Branch Checkout**: Uses `github.event.repository.default_branch` for consistent main branch detection
+- **Pre-flight Checks**: Adds `git status` and `git branch` verification before operations
+- **Improved Error Handling**: Better git command sequencing and error recovery
+
+#### 🛠️ **Expanded Tool Access**
+- **Additional Git Commands**: Enhanced allowed tools including status and branch verification
+- **Refined PR Creation**: More specific GitHub CLI commands with explicit base branch handling
+- **Better Workflow Context**: Improved environment variable usage for cross-step communication
+
+#### 📋 **Workflow Reliability**
+- **Consistent Branch References**: All git operations now use the repository's default branch
+- **Enhanced Documentation**: More detailed step-by-step instructions in the direct prompt
+- **Improved Validation**: Better verification of git state before performing operations
 
 ## Recent Activity
 
-This repository was initialized with the automated README sync workflow on June 4, 2025. The workflow enables continuous documentation maintenance as the codebase evolves.
+### June 4, 2025
+- **Repository Initialization**: Created automated README sync workflow with Claude AI integration
+- **Workflow Enhancement**: Updated to Version 2.0 with improved git operations and error handling
+- **Documentation Updates**: Enhanced README with comprehensive workflow documentation
+- **Branch Handling**: Improved default branch detection and git operation reliability
+
+The repository demonstrates a complete automated documentation system that continuously maintains README accuracy as the codebase evolves.
