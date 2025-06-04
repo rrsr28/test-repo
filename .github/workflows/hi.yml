@@ -15,8 +15,18 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Get full history to analyze last 7 days
-          ref: ${{ github.event.repository.default_branch }}  # Explicitly checkout main/master
+          # Remove the ref parameter to work with the default checkout behavior
           token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Switch to main branch for analysis
+        run: |
+          git checkout ${{ github.event.repository.default_branch }}
+          git pull origin ${{ github.event.repository.default_branch }}
+      
+      - name: Setup GitHub CLI
+        run: |
+          # Ensure gh is authenticated
+          echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
       
       - name: Analyze last 7 days of changes
         id: analyze-changes
@@ -72,39 +82,58 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           timeout_minutes: "45"
-          allowed_tools: "Bash(git status),Bash(git branch),Bash(git log --since='${{ env.SINCE_DATE }}' --oneline),Bash(git log --since='${{ env.SINCE_DATE }}' --name-only --pretty=format:),Bash(git diff --name-only HEAD~${{ env.COMMIT_COUNT }}..HEAD),Bash(git diff HEAD~${{ env.COMMIT_COUNT }}..HEAD),Bash(git checkout -b ${{ env.BRANCH_NAME }}),Bash(git config --global user.name 'Claude Bot'),Bash(git config --global user.email 'claude-bot@anthropic.com'),Bash(git add README.md),Bash(git commit -m*),Bash(git push origin ${{ env.BRANCH_NAME }}),Bash(gh pr create --title* --body* --base ${{ github.event.repository.default_branch }} --head ${{ env.BRANCH_NAME }}),View,GlobTool,GrepTool,BatchTool,Edit"
+          allowed_tools: "Bash(git status),Bash(git branch),Bash(git log --since='${{ env.SINCE_DATE }}' --oneline),Bash(git log --since='${{ env.SINCE_DATE }}' --name-only --pretty=format:),Bash(git diff --name-only HEAD~${{ env.COMMIT_COUNT }}..HEAD),Bash(git diff HEAD~${{ env.COMMIT_COUNT }}..HEAD),Bash(git fetch origin),Bash(git checkout ${{ github.event.repository.default_branch }}),Bash(git pull origin ${{ github.event.repository.default_branch }}),Bash(git checkout -b ${{ env.BRANCH_NAME }}),Bash(git config --global user.name 'Claude Bot'),Bash(git config --global user.email 'claude-bot@anthropic.com'),Bash(git add README.md),Bash(git commit -m*),Bash(git push origin ${{ env.BRANCH_NAME }}),Bash(gh pr create --title* --body* --base ${{ github.event.repository.default_branch }} --head ${{ env.BRANCH_NAME }}),Bash(gh pr comment ${{ github.event.pull_request.number }} --body*),View,GlobTool,GrepTool,BatchTool,Edit"
           direct_prompt: |
             I need you to analyze the code changes from the last 7 days, update the README.md, and create a separate pull request with those changes.
             
-            Please follow these steps:
+            **IMPORTANT: You must work from the main branch and create a completely separate branch/PR**
             
-            **Step 1: Understand Recent Activity**
-            1. Run `git log --since='${{ env.SINCE_DATE }}' --oneline` to see all commits from the last week
-            2. Run `git log --since='${{ env.SINCE_DATE }}' --name-only --pretty=format:` to see which files changed
-            3. Run `git diff --name-only HEAD~${{ env.COMMIT_COUNT }}..HEAD` for a clean list of changed files
-            4. Run `git diff HEAD~${{ env.COMMIT_COUNT }}..HEAD` to see the actual code changes
+            Please follow these steps carefully:
             
-            **Step 2: README Analysis & Update**
-            5. Read and understand the current README.md content
-            6. Analyze all the changes from the past 7 days to understand what functionality has been added, modified, or removed
-            7. Update the README.md to reflect these accumulated changes
+            **Step 1: Ensure Clean State**
+            1. Run `git status` to check current state
+            2. Run `git branch` to see current branch
+            3. Run `git fetch origin` to get latest changes
+            4. Run `git checkout ${{ github.event.repository.default_branch }}` to ensure you're on main
+            5. Run `git pull origin ${{ github.event.repository.default_branch }}` to get latest main
             
-            **Step 3: Create New Branch & Commit**
-            8. First, verify you're on the main branch: `git status` and `git branch`
-            9. Create a new branch from main: `git checkout -b ${{ env.BRANCH_NAME }}`
-            10. Configure git: `git config --global user.name 'Claude Bot'` and `git config --global user.email 'claude-bot@anthropic.com'`
-            11. Commit with a descriptive message: `git commit -m "docs: update README based on 7-day analysis - [brief description of main changes]"`
-            12. Push the new branch: `git push origin ${{ env.BRANCH_NAME }}`
+            **Step 2: Understand Recent Activity**
+            6. Run `git log --since='${{ env.SINCE_DATE }}' --oneline` to see all commits from the last week
+            7. Run `git log --since='${{ env.SINCE_DATE }}' --name-only --pretty=format:` to see which files changed
+            8. Run `git diff --name-only HEAD~${{ env.COMMIT_COUNT }}..HEAD` for a clean list of changed files
+            9. Run `git diff HEAD~${{ env.COMMIT_COUNT }}..HEAD` to see the actual code changes
             
-            **Step 4: Create Pull Request**
-            13. Create a pull request: `gh pr create --title "📝 README Update - 7-day Analysis" --body "[Detailed description of changes]" --base ${{ github.event.repository.default_branch }} --head ${{ env.BRANCH_NAME }}`
+            **Step 3: README Analysis & Update**
+            10. Read and understand the current README.md content
+            11. Analyze all the changes from the past 7 days to understand what functionality has been added, modified, or removed
+            12. Update the README.md to reflect these accumulated changes
             
-            **Step 5: Comment on Triggering PR**
-            14. Add a comment to PR #${{ github.event.pull_request.number }} explaining:
-                - That a separate README update PR has been created
-                - Link to the new PR
-                - Summary of what sections were updated and why
-                - How the changes relate to recent development activity
+            **Step 4: Create New Branch & Commit (CRITICAL STEP)**
+            13. **MUST DO**: Create a new branch from main: `git checkout -b ${{ env.BRANCH_NAME }}`
+            14. Verify you're on the new branch: `git branch` (should show * next to ${{ env.BRANCH_NAME }})
+            15. Configure git: `git config --global user.name 'Claude Bot'` and `git config --global user.email 'claude-bot@anthropic.com'`
+            16. Stage your changes: `git add README.md`
+            17. Commit with a descriptive message: `git commit -m "docs: update README based on 7-day analysis - [brief description of main changes]"`
+            18. Push the new branch: `git push origin ${{ env.BRANCH_NAME }}`
+            
+            **Step 5: Create Pull Request**
+            19. Create a pull request: `gh pr create --title "📝 README Update - 7-day Analysis" --body "[Detailed description of changes including:
+                - Analysis period: ${{ env.SINCE_DATE }} to now
+                - Total commits analyzed: ${{ env.COMMIT_COUNT }}
+                - Main changes discovered
+                - README sections updated
+                - Relationship to recent development activity]" --base ${{ github.event.repository.default_branch }} --head ${{ env.BRANCH_NAME }}`
+            
+            **Step 6: Comment on Triggering PR**
+            20. Add a comment to the triggering PR: `gh pr comment ${{ github.event.pull_request.number }} --body "🤖 **README Update Created**
+            
+                I've analyzed the last 7 days of development activity and created a separate PR to update the README:
+                
+                - **Analysis Period**: ${{ env.SINCE_DATE }} to now
+                - **Commits Analyzed**: ${{ env.COMMIT_COUNT }}
+                - **New PR Branch**: ${{ env.BRANCH_NAME }}
+                
+                The README update PR includes documentation for recent changes and will be linked here once created."`
             
             **Guidelines for README updates:**
             - Focus on consolidating changes rather than individual commits
@@ -113,15 +142,6 @@ jobs:
             - Be specific about what changed and include examples for new features
             - If no significant updates are needed, don't create a PR, just comment explaining why
             
-            **Guidelines for the new PR:**
-            - Title should be descriptive: "📝 README Update - 7-day Analysis"
-            - PR body should include:
-              - Summary of analyzed period and commit count
-              - List of main changes discovered
-              - What README sections were updated
-              - Before/after examples for significant changes
-            - Use clear, professional language
-            
             **Context:**
             - Analysis period: Last 7 days (since ${{ env.SINCE_DATE }})
             - Total commits found: ${{ env.COMMIT_COUNT }}
@@ -129,4 +149,4 @@ jobs:
             - New branch name: ${{ env.BRANCH_NAME }}
             - Base branch: ${{ github.event.repository.default_branch }}
             
-            Please analyze the 7-day changes, update the README, and create a separate pull request with comprehensive documentation of the changes.
+            **CRITICAL REMINDER**: You MUST create a new branch (${{ env.BRANCH_NAME }}) from main, make changes there, and create a separate PR. Do NOT commit to the existing PR branch.
