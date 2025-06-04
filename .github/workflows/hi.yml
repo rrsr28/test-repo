@@ -1,0 +1,131 @@
+name: Claude README Sync (PR-triggered, 7-day analysis)
+on:
+  pull_request:
+    types: [opened, synchronize]
+jobs:
+  readme-sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Get full history to analyze last 7 days
+          ref: ${{ github.base_ref }}  # Checkout base branch (main/master)
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Analyze last 7 days of changes
+        id: analyze-changes
+        run: |
+          echo "=== Analyzing changes from last 7 days ==="
+          
+          # Get commits from last 7 days
+          SINCE_DATE=$(date -d '7 days ago' --iso-8601)
+          echo "Checking changes since: $SINCE_DATE"
+          
+          # Get changed files in the last week
+          echo "Files changed in last 7 days:"
+          CHANGED_FILES=$(git log --since="$SINCE_DATE" --name-only --pretty=format: \
+            | sort -u \
+            | grep -v '^$' \
+            | head -50)
+          echo "$CHANGED_FILES"
+          
+          # Get commit count and summary
+          RECENT_COMMITS=$(git log --since="$SINCE_DATE" --oneline)
+          COMMIT_COUNT=$(echo "$RECENT_COMMITS" | wc -l)
+          
+          echo "=== Commits from last 7 days ($COMMIT_COUNT total) ==="
+          echo "$RECENT_COMMITS"
+          
+          # Generate unique branch name
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          BRANCH_NAME="readme-sync-${TIMESTAMP}"
+          echo "Will create branch: $BRANCH_NAME"
+          
+          # Save to environment
+          {
+            echo "CHANGED_FILES<<EOF"
+            echo "$CHANGED_FILES"
+            echo "EOF"
+            echo "COMMIT_COUNT=$COMMIT_COUNT"
+            echo "SINCE_DATE=$SINCE_DATE"
+            echo "BRANCH_NAME=$BRANCH_NAME"
+          } >> $GITHUB_ENV
+          
+          # Check if we have changes to analyze
+          if [ "$COMMIT_COUNT" -eq "0" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "No commits in the last 7 days"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "Found $COMMIT_COUNT commits to analyze"
+          fi
+      
+      - name: Sync README with Claude (Create Separate PR)
+        if: steps.analyze-changes.outputs.skip != 'true'
+        uses: anthropics/claude-code-action@beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          timeout_minutes: "45"
+          allowed_tools: "Bash(git log --since='${{ env.SINCE_DATE }}' --oneline),Bash(git log --since='${{ env.SINCE_DATE }}' --name-only --pretty=format:),Bash(git diff --name-only HEAD~${{ env.COMMIT_COUNT }}..HEAD),Bash(git diff HEAD~${{ env.COMMIT_COUNT }}..HEAD),Bash(git checkout -b ${{ env.BRANCH_NAME }}),Bash(git config --global user.name 'Claude Bot'),Bash(git config --global user.email 'claude-bot@anthropic.com'),Bash(git add README.md),Bash(git commit -m*),Bash(git push origin ${{ env.BRANCH_NAME }}),Bash(gh pr create*),View,GlobTool,GrepTool,BatchTool,Edit"
+          direct_prompt: |
+            I need you to analyze the code changes from the last 7 days, update the README.md, and create a separate pull request with those changes.
+            
+            Please follow these steps:
+            
+            **Step 1: Understand Recent Activity**
+            1. Run `git log --since='${{ env.SINCE_DATE }}' --oneline` to see all commits from the last week
+            2. Run `git log --since='${{ env.SINCE_DATE }}' --name-only --pretty=format:` to see which files changed
+            3. Run `git diff --name-only HEAD~${{ env.COMMIT_COUNT }}..HEAD` for a clean list of changed files
+            4. Run `git diff HEAD~${{ env.COMMIT_COUNT }}..HEAD` to see the actual code changes
+            
+            **Step 2: README Analysis & Update**
+            5. Read and understand the current README.md content
+            6. Analyze all the changes from the past 7 days to understand what functionality has been added, modified, or removed
+            7. Update the README.md to reflect these accumulated changes
+            
+            **Step 3: Create New Branch & Commit**
+            8. Create a new branch: `git checkout -b ${{ env.BRANCH_NAME }}`
+            9. Configure git: `git config --global user.name 'Claude Bot'` and `git config --global user.email 'claude-bot@anthropic.com'`
+            10. Commit with a descriptive message: `git commit -m "docs: update README based on 7-day analysis - [brief description of main changes]"`
+            11. Push the branch: `git push origin ${{ env.BRANCH_NAME }}`
+            
+            **Step 4: Create Pull Request**
+            12. Create a pull request using: `gh pr create --title "📝 README Update - 7-day Analysis" --body "[Detailed description of changes]" --base ${{ github.base_ref }} --head ${{ env.BRANCH_NAME }}`
+            
+            **Step 5: Comment on Triggering PR**
+            13. Add a comment to PR #${{ github.event.pull_request.number }} explaining:
+                - That a separate README update PR has been created
+                - Link to the new PR
+                - Summary of what sections were updated and why
+                - How the changes relate to recent development activity
+            
+            **Guidelines for README updates:**
+            - Focus on consolidating changes rather than individual commits
+            - Update multiple README sections if needed (installation, usage, API docs, features, etc.)
+            - Maintain the existing README structure and tone
+            - Be specific about what changed and include examples for new features
+            - If no significant updates are needed, don't create a PR, just comment explaining why
+            
+            **Guidelines for the new PR:**
+            - Title should be descriptive: "📝 README Update - 7-day Analysis"
+            - PR body should include:
+              - Summary of analyzed period and commit count
+              - List of main changes discovered
+              - What README sections were updated
+              - Before/after examples for significant changes
+            - Use clear, professional language
+            
+            **Context:**
+            - Analysis period: Last 7 days (since ${{ env.SINCE_DATE }})
+            - Total commits found: ${{ env.COMMIT_COUNT }}
+            - Triggering PR: #${{ github.event.pull_request.number }} - "${{ github.event.pull_request.title }}"
+            - New branch name: ${{ env.BRANCH_NAME }}
+            - Base branch: ${{ github.base_ref }}
+            
+            Please analyze the 7-day changes, update the README, and create a separate pull request with comprehensive documentation of the changes.
