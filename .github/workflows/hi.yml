@@ -3,7 +3,7 @@ name: Claude README Sync (PR-triggered, 7-day analysis)
 on:
   pull_request:
     types: [opened, synchronize]
-    
+
 jobs:
   readme-sync:
     runs-on: ubuntu-latest
@@ -13,26 +13,12 @@ jobs:
       id-token: write
     
     steps:
-      - name: Checkout main branch (clean state)
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0  # Get full history to analyze last 7 days
+          ref: main  # Always checkout main branch as base
           token: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Setup GitHub CLI and Git Config
-        run: |
-          # Setup GitHub CLI
-          echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
-          
-          # Setup git config for commits
-          git config --global user.name 'Claude Bot'
-          git config --global user.email 'claude-bot@anthropic.com'
-          
-          # Verify we're on main and clean
-          echo "Current branch: $(git branch --show-current)"
-          echo "Working directory status:"
-          git status --porcelain
       
       - name: Analyze last 7 days of changes
         id: analyze-changes
@@ -81,139 +67,131 @@ jobs:
             echo "skip=false" >> $GITHUB_OUTPUT
             echo "Found $COMMIT_COUNT commits to analyze"
           fi
-      
-      - name: Create new branch for README updates
-        if: steps.analyze-changes.outputs.skip != 'true'
-        run: |
-          echo "Creating new branch: ${{ env.BRANCH_NAME }}"
-          git checkout -b ${{ env.BRANCH_NAME }}
-          echo "Current branch after creation: $(git branch --show-current)"
-          
-          # Verify we're on the new branch
-          CURRENT_BRANCH=$(git branch --show-current)
-          if [ "$CURRENT_BRANCH" != "${{ env.BRANCH_NAME }}" ]; then
-            echo "ERROR: Failed to switch to new branch. Current: $CURRENT_BRANCH, Expected: ${{ env.BRANCH_NAME }}"
-            exit 1
-          fi
-          
-          echo "Successfully created and switched to branch: ${{ env.BRANCH_NAME }}"
-      
-      - name: Sync README with Claude
+
+      - name: Sync README with Claude and Create PR
         if: steps.analyze-changes.outputs.skip != 'true'
         uses: anthropics/claude-code-action@beta
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           timeout_minutes: "45"
-          allowed_tools: "Bash(git status),Bash(git branch),Bash(git branch --show-current),Bash(git log --since='${{ env.SINCE_DATE }}' --oneline),Bash(git log --since='${{ env.SINCE_DATE }}' --name-only --pretty=format:),Bash(git diff --name-only HEAD~${{ env.COMMIT_COUNT }}..HEAD),Bash(git diff HEAD~${{ env.COMMIT_COUNT }}..HEAD),Bash(git add README.md),Bash(git commit -m*),Bash(echo*),View,GlobTool,GrepTool,BatchTool,Edit"
+          allowed_tools: "Bash(git config*),Bash(git checkout*),Bash(git branch*),Bash(git status),Bash(git log*),Bash(git diff*),Bash(git add*),Bash(git commit*),Bash(git push*),Bash(gh pr create*),Bash(gh pr comment*),Bash(echo*),View,GlobTool,GrepTool,BatchTool,Edit"
           direct_prompt: |
-            I need you to analyze the recent code changes and update the README.md file. 
+            I need you to analyze the code changes from the last 7 days, update the README.md file, and create a separate pull request for the documentation updates.
             
-            **CRITICAL**: You are already on the correct branch (${{ env.BRANCH_NAME }}) - DO NOT create or switch branches!
+            **IMPORTANT**: You need to create a NEW BRANCH for the README updates, not work on the current branch.
             
-            Please follow these steps:
+            Please follow these steps EXACTLY:
             
-            **Step 1: Verify Current State**
-            1. Run `git branch --show-current` to confirm you're on branch: ${{ env.BRANCH_NAME }}
-            2. Run `git status` to check working directory status
+            **Step 1: Setup Git Configuration**
+            1. Run `git config --global user.name 'Claude Bot'`
+            2. Run `git config --global user.email 'claude-bot@anthropic.com'`
             
-            **Step 2: Analyze Recent Changes**
-            3. Run `git log --since='${{ env.SINCE_DATE }}' --oneline` to see commits from the last week
-            4. Run `git log --since='${{ env.SINCE_DATE }}' --name-only --pretty=format:` to see which files changed
-            5. Run `git diff --name-only HEAD~${{ env.COMMIT_COUNT }}..HEAD` for changed files list
-            6. Run `git diff HEAD~${{ env.COMMIT_COUNT }}..HEAD` to see actual code changes
+            **Step 2: Verify Current State and Create New Branch**
+            3. Run `git status` to see current state
+            4. Run `git branch --show-current` to see current branch
+            5. Create and switch to new branch: `git checkout -b ${{ env.BRANCH_NAME }}`
+            6. Verify you're on the new branch: `git branch --show-current`
             
-            **Step 3: Update README**
-            7. Read the current README.md file
-            8. Analyze the changes from the past 7 days and understand what functionality was added/modified/removed
-            9. Update the README.md to reflect these changes (maintain existing structure and tone)
+            **Step 3: Analyze Recent Changes**
+            7. Run `git log --since='${{ env.SINCE_DATE }}' --oneline` to see commits from the last week
+            8. Run `git log --since='${{ env.SINCE_DATE }}' --name-only --pretty=format:` to see which files changed
+            9. Run `git diff --name-only HEAD~${{ env.COMMIT_COUNT }}..HEAD 2>/dev/null || git log --name-only --pretty=format: -n ${{ env.COMMIT_COUNT }}` for changed files list
+            10. Run `git diff HEAD~${{ env.COMMIT_COUNT }}..HEAD 2>/dev/null || git show --name-only` to see actual code changes
             
-            **Step 4: Commit Changes (ONLY if README was updated)**
-            10. If you made changes to README.md:
+            **Step 4: README Analysis & Update**
+            11. Read and understand the current README.md content
+            12. Analyze all the changes from the past 7 days to understand what functionality has been added, modified, or removed
+            13. Update the README.md to reflect these accumulated changes (maintain existing structure and tone)
+            
+            **Step 5: Commit and Push Changes**
+            14. If you made changes to README.md:
                 - Run `git add README.md`
-                - Run `git commit -m "docs: update README based on 7-day analysis - [brief description]"`
-                - Run `echo "README updated and committed successfully"`
-            11. If no changes were needed:
-                - Run `echo "No README updates required"`
+                - Run `git commit -m "docs: update README based on 7-day analysis - [brief description of changes]"`
+                - Run `git push --set-upstream origin ${{ env.BRANCH_NAME }}`
+                - Run `echo "README updated, committed, and pushed successfully"`
+            15. If no changes were needed:
+                - Run `echo "No README updates required - documentation is current"`
+                - SKIP the remaining steps
+            
+            **Step 6: Create Pull Request (only if changes were made)**
+            16. Create PR using GitHub CLI:
+                ```bash
+                gh pr create \
+                  --title "📝 README Update - 7-day Analysis (triggered by PR #${{ github.event.pull_request.number }})" \
+                  --body "## 🤖 Automated README Update
+                
+                This PR contains README updates based on analysis of the last 7 days of changes.
+                
+                **Triggered by:** PR #${{ github.event.pull_request.number }} - \"${{ github.event.pull_request.title }}\"
+                
+                **Analysis Period:** Last 7 days (since ${{ env.SINCE_DATE }})
+                
+                **Changes Analyzed:** ${{ env.COMMIT_COUNT }} commits
+                
+                ### Summary of Recent Activity
+                
+                The README has been updated to reflect recent development changes and improvements.
+                
+                ---
+                
+                *This PR was automatically created by Claude based on recent repository activity.*" \
+                  --base main \
+                  --head ${{ env.BRANCH_NAME }} \
+                  --label "documentation,automated,readme-update"
+                ```
+            
+            **Step 7: Comment on Original PR**
+            17. Add comment to the triggering PR:
+                ```bash
+                gh pr comment ${{ github.event.pull_request.number }} --body "## 📝 README Update Available
+                
+                I've analyzed the recent changes and created a separate PR to update the README.md file.
+                
+                **New Branch:** \`${{ env.BRANCH_NAME }}\`
+                **Analysis Period:** ${{ env.SINCE_DATE }} to $(date --iso-8601)
+                **Commits Analyzed:** ${{ env.COMMIT_COUNT }}
+                
+                The README update PR should appear shortly with a comprehensive analysis of recent changes.
+                
+                ---
+                
+                *This comment was automatically generated by Claude README Sync*"
+                ```
             
             **Guidelines:**
             - Focus on consolidating changes rather than individual commits
-            - Update relevant sections (installation, usage, API docs, features, etc.)
-            - Be specific about what changed and include examples for new features
+            - Update multiple README sections if needed (installation, usage, API docs, features, etc.)
             - Maintain the existing README structure and tone
+            - Be specific about what changed and include examples for new features
+            - Use clear, descriptive commit messages
             
             **Context:**
-            - Analysis period: ${{ env.SINCE_DATE }} to now
-            - Total commits: ${{ env.COMMIT_COUNT }}
-            - Current branch: ${{ env.BRANCH_NAME }}
-            - Triggering PR: #${{ github.event.pull_request.number }}
+            - Analysis period: Last 7 days (since ${{ env.SINCE_DATE }})
+            - Total commits found: ${{ env.COMMIT_COUNT }}
+            - New branch name: ${{ env.BRANCH_NAME }}
+            - Triggering PR: #${{ github.event.pull_request.number }} - "${{ github.event.pull_request.title }}"
             
-            **Remember: DO NOT switch branches or create new branches - you're already on the correct one!**
-      
-      - name: Push branch and create PR
-        if: steps.analyze-changes.outputs.skip != 'true'
-        run: |
-          # Check if there are any commits on the new branch
-          COMMITS_ON_BRANCH=$(git rev-list --count ${{ github.event.repository.default_branch }}..${{ env.BRANCH_NAME }})
-          
-          if [ "$COMMITS_ON_BRANCH" -gt "0" ]; then
-            echo "Found $COMMITS_ON_BRANCH commit(s) on branch ${{ env.BRANCH_NAME }}"
+            **CRITICAL**: Make sure you create the new branch BEFORE making any changes, and push to that branch, not the current one!
+
+      - name: Handle no changes case
+        if: steps.analyze-changes.outputs.skip == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = context.payload.pull_request.number;
             
-            # Push the branch
-            echo "Pushing branch to origin..."
-            git push origin ${{ env.BRANCH_NAME }}
-            
-            # Create PR
-            echo "Creating pull request..."
-            PR_URL=$(gh pr create \
-              --title "📝 README Update - 7-day Analysis ($(date +%Y-%m-%d))" \
-              --body "## README Update - 7-day Analysis
-
-            This PR updates the README.md based on analysis of development activity from the last 7 days.
-
-            **Analysis Details:**
-            - **Period**: ${{ env.SINCE_DATE }} to $(date --iso-8601)
-            - **Commits Analyzed**: ${{ env.COMMIT_COUNT }}
-            - **Triggered by**: PR #${{ github.event.pull_request.number }} - \"${{ github.event.pull_request.title }}\"
-
-            **Changes Made:**
-            The README has been updated to reflect recent code changes and improvements. Please review the changes to ensure they accurately represent the current state of the project.
-
-            ---
-            🤖 *This PR was automatically created by Claude Bot*" \
-              --base ${{ github.event.repository.default_branch }} \
-              --head ${{ env.BRANCH_NAME }})
-            
-            echo "✅ Created PR: $PR_URL"
-            
-            # Comment on the original PR
-            gh pr comment ${{ github.event.pull_request.number }} --body "🤖 **README Update Created**
-
-            I've analyzed the last 7 days of development activity and created a separate PR to update the README:
-
-            **📊 Analysis Summary:**
-            - **Period**: ${{ env.SINCE_DATE }} to $(date --iso-8601)
-            - **Commits Analyzed**: ${{ env.COMMIT_COUNT }}
-            - **New Branch**: \`${{ env.BRANCH_NAME }}\`
-
-            **🔗 README Update PR**: $PR_URL
-
-            The README has been updated to reflect recent changes and improvements in the codebase."
-            
-          else
-            echo "No commits found on branch ${{ env.BRANCH_NAME }}, no PR needed"
-            
-            # Still comment on the original PR to explain
-            gh pr comment ${{ github.event.pull_request.number }} --body "🤖 **README Analysis Complete**
-
-            I analyzed the last 7 days of development activity but found that no README updates were necessary at this time.
-
-            **📊 Analysis Summary:**
-            - **Period**: ${{ env.SINCE_DATE }} to $(date --iso-8601)
-            - **Commits Analyzed**: ${{ env.COMMIT_COUNT }}
-
-            The current README appears to be up-to-date with recent changes."
-            
-            # Clean up the unused branch
-            git checkout ${{ github.event.repository.default_branch }}
-            git branch -D ${{ env.BRANCH_NAME }} || true
-          fi
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: `## ℹ️ No README Update Needed
+              
+              I analyzed the repository but found no commits in the last 7 days that would require README updates.
+              
+              The current README.md appears to be up to date.
+              
+              ---
+              
+              *This comment was automatically generated by Claude README Sync*`
+            });
