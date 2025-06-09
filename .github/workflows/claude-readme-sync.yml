@@ -1,0 +1,110 @@
+name: Claude README Sync
+
+on:
+  workflow_call:
+
+jobs:
+  readme-sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Analyze last 7 days of changes on main
+        id: analyze-changes
+        run: |
+          echo "=== Analyzing changes from last 7 days on main branch ==="
+          MAIN_SHA=$(git rev-parse HEAD)
+          echo "Current main SHA: $MAIN_SHA"
+          
+          SINCE_DATE=$(date -d '7 days ago' --iso-8601)
+          echo "Checking changes since: $SINCE_DATE"
+          
+          CHANGED_FILES=$(git log --since="$SINCE_DATE" --name-only --pretty=format: \
+            | sort -u | grep -v '^$' | head -50)
+          echo "$CHANGED_FILES"
+          
+          RECENT_COMMITS=$(git log --since="$SINCE_DATE" --oneline)
+          COMMIT_COUNT=$(echo "$RECENT_COMMITS" | grep -c . || echo "0")
+          
+          echo "=== Commits from last 7 days on main ($COMMIT_COUNT total) ==="
+          echo "$RECENT_COMMITS"
+          
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          BRANCH_NAME="readme-sync-weekly-${TIMESTAMP}"
+          echo "Will create branch: $BRANCH_NAME"
+          
+          {
+            echo "CHANGED_FILES<<EOF"
+            echo "$CHANGED_FILES"
+            echo "EOF"
+            echo "COMMIT_COUNT=$COMMIT_COUNT"
+            echo "SINCE_DATE=$SINCE_DATE"
+            echo "BRANCH_NAME=$BRANCH_NAME"
+            echo "MAIN_SHA=$MAIN_SHA"
+          } >> $GITHUB_ENV
+          
+          if [ "$COMMIT_COUNT" -eq "0" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "No commits in the last 7 days on main branch"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "Found $COMMIT_COUNT commits to analyze on main"
+          fi
+
+      - name: Sync README with Claude and Create PR
+        if: steps.analyze-changes.outputs.skip != 'true'
+        uses: anthropics/claude-code-action@beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          timeout_minutes: "45"
+          allowed_tools: "Bash,git,gh,View,Glob,Grep,Batch,Edit"
+          direct_prompt: |
+            I need you to analyze the code changes from the last 7 days on the main branch, update the README.md file, and create a pull request for the documentation updates.
+
+            **SCHEDULED WEEKLY README SYNC**
+            - Scheduled job: Monday 12:30 PM IST
+            - Current commit: ${{ env.MAIN_SHA }}
+            - Analysis period: since ${{ env.SINCE_DATE }} (last 7 days, ${{ env.COMMIT_COUNT }} commits)
+
+            Follow steps:
+            1. Verify clean repo, set user identity.
+            2. Analyze recent commits & changed files.
+            3. Create branch: ${{ env.BRANCH_NAME }}.
+            4. Update README.md to reflect changes.
+            5. Commit README.md only (with dated commit and bullet list).
+            6. Push branch.
+            7. Create PR via `gh pr create` with title, body, labels, including files list.
+
+      - name: Handle no changes case
+        if: steps.analyze-changes.outputs.skip == 'true'
+        run: |
+          echo "::notice title=No Changes Found::No commits in the last 7 days that require README updates."
+          echo "Current main commit: ${{ env.MAIN_SHA }}"
+          echo "Analysis period: since ${{ env.SINCE_DATE }} (last 7 days)"
+          echo "Commits found: 0"
+          echo "README is current."
+
+      - name: Summary Report
+        if: always()
+        run: |
+          echo "::group::Weekly README Sync Summary"
+          echo "Scheduled: Monday 12:30 PM IST"
+          echo "Period: ${{ env.SINCE_DATE }} to $(date --iso-8601)"
+          echo "Main commit: ${{ env.MAIN_SHA }}"
+          echo "Commits analyzed: ${{ env.COMMIT_COUNT }}"
+          echo "Changes required: $([[ ${{ steps.analyze-changes.outputs.skip }} != "true" ]] && echo "Yes" || echo "No")"
+          if [ "${{ steps.analyze-changes.outputs.skip }}" != "true" ]; then
+            echo "Branch: ${{ env.BRANCH_NAME }}"
+          fi
+          echo "::endgroup::"
