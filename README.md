@@ -36,7 +36,7 @@ The system activates automatically when:
 ## 🔧 Technical Implementation
 
 ### Workflow Configuration
-- **File**: `.github/workflows/hi.yml` (208 lines)
+- **File**: `.github/workflows/hi.yml` (253 lines)
 - **Trigger**: `pull_request` events (`opened`, `synchronize`)
 - **Runtime**: Ubuntu Latest
 - **Timeout**: 45 minutes maximum
@@ -56,14 +56,15 @@ permissions:
 - **`BRANCH_NAME`**: Unique timestamp-based branch name (`readme-sync-YYYYMMDD-HHMMSS`)
 
 ### Required Secrets
-- **`ANTHROPIC_API_KEY2`**: API key for Claude AI integration
+- **`ANTHROPIC_API_KEY`**: API key for Claude AI integration
 - **`GITHUB_TOKEN`**: Automatically provided by GitHub Actions
 
 ## 🛠️ Allowed Tools
 The Claude AI integration has access to:
 - **Git Operations**: `config`, `checkout`, `branch`, `status`, `log`, `diff`, `add`, `commit`, `push`
-- **File Analysis**: View, Glob, Grep, Edit tools for code analysis
-- **GitHub API**: File access, branch creation, PR creation, issue commenting
+- **File Analysis**: View, GlobTool, GrepTool, BatchTool, Edit for code analysis
+- **Command Execution**: Echo and other basic shell operations
+- **GitHub CLI**: Pull request creation and management via `gh` command
 
 ## 📋 Usage
 
