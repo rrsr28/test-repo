@@ -36,7 +36,7 @@ The system activates automatically when:
 ## 🔧 Technical Implementation
 
 ### Workflow Configuration
-- **File**: `.github/workflows/hi.yml` (253 lines)
+- **File**: `.github/workflows/hi.yml` (208 lines)
 - **Trigger**: `pull_request` events (`opened`, `synchronize`)
 - **Runtime**: Ubuntu Latest
 - **Timeout**: 45 minutes maximum
@@ -61,10 +61,10 @@ permissions:
 
 ## 🛠️ Allowed Tools
 The Claude AI integration has access to:
-- **Git Operations**: `config`, `checkout`, `branch`, `status`, `log`, `diff`, `add`, `commit`, `push`
-- **File Analysis**: View, GlobTool, GrepTool, BatchTool, Edit for code analysis
-- **Command Execution**: Echo and other basic shell operations
-- **GitHub CLI**: Pull request creation and management via `gh` command
+- **Git Operations**: `git config*`, `git checkout*`, `git branch*`, `git status`, `git log*`, `git diff*`, `git add*`, `git commit*`, `git push*`
+- **File Analysis**: `View`, `GlobTool`, `GrepTool`, `BatchTool`, `Edit` for code analysis
+- **Command Execution**: `echo*` and other basic shell operations
+- **GitHub API**: File access via `mcp__github__get_file_contents`
 
 ## 📋 Usage
 
