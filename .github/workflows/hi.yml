@@ -3,7 +3,7 @@ name: Claude README Sync (Scheduled Weekly)
 on:
   schedule:
     # Runs at 12:30 PM IST every Monday (07:00 UTC, accounting for IST = UTC+5:30)
-    - cron: '43 9 * * 1'
+    - cron: '59 9 * * 1'
   workflow_dispatch:  # Allow manual triggering for testing
 
 jobs:
@@ -80,10 +80,9 @@ jobs:
         uses: anthropics/claude-code-base-action@beta
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
           timeout_minutes: "45"
           allowed_tools: "Bash,git,gh,View,Glob,Grep,Batch,Edit"
-          direct_prompt: |
+          prompt: |
             I need you to analyze the code changes from the last 7 days on the main branch, update the README.md file, and create a pull request for the documentation updates.
             
             **SCHEDULED WEEKLY README SYNC**
