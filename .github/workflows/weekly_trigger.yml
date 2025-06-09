@@ -1,0 +1,12 @@
+name: Weekly Trigger for README Sync
+
+on:
+  schedule:
+    # Runs at Monday 12:30 PM IST (07:00 UTC)
+    - cron: '21 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  trigger-readme-sync:
+    uses: ./.github/workflows/claude-readme-sync.yml
+    secrets: inherit
