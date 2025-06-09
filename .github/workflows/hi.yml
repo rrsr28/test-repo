@@ -80,7 +80,7 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           timeout_minutes: "45"
-          allowed_tools: "Bash(git config*),Bash(git checkout*),Bash(git branch*),Bash(git status),Bash(git log*),Bash(git diff*),Bash(git add*),Bash(git commit*),Bash(git push*),Bash(echo*),View,GlobTool,GrepTool,BatchTool,Edit,mcp__github__get_file_contents"
+          allowed_tools: "Bash,git,gh,View,Glob,Grep,Batch,Edit"
           direct_prompt: |
             I need you to analyze the code changes from the last 7 days on the main branch (excluding the current PR), update the README.md file, and create a separate pull request for the documentation updates.
             
