@@ -17,31 +17,36 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Get full history to analyze last 7 days
-          ref: main  # Always checkout main branch as base
+          # CRITICAL: Don't checkout main, checkout the base branch without PR changes
+          ref: ${{ github.event.pull_request.base.sha }}  # Clean base without PR commits
           token: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Analyze last 7 days of changes
+      - name: Analyze last 7 days of changes (excluding current PR)
         id: analyze-changes
         run: |
-          echo "=== Analyzing changes from last 7 days ==="
+          echo "=== Analyzing changes from last 7 days (excluding current PR) ==="
           
-          # Get commits from last 7 days
+          # Get the base commit (main branch tip before this PR)
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          echo "Base SHA (main before PR): $BASE_SHA"
+          
+          # Get commits from last 7 days on main branch only
           SINCE_DATE=$(date -d '7 days ago' --iso-8601)
           echo "Checking changes since: $SINCE_DATE"
           
-          # Get changed files in the last week
-          echo "Files changed in last 7 days:"
-          CHANGED_FILES=$(git log --since="$SINCE_DATE" --name-only --pretty=format: \
+          # Get changed files in the last week on main branch only
+          echo "Files changed in last 7 days on main:"
+          CHANGED_FILES=$(git log $BASE_SHA --since="$SINCE_DATE" --name-only --pretty=format: \
             | sort -u \
             | grep -v '^$' \
             | head -50)
           echo "$CHANGED_FILES"
           
-          # Get commit count and summary
-          RECENT_COMMITS=$(git log --since="$SINCE_DATE" --oneline)
+          # Get commit count and summary from main branch only
+          RECENT_COMMITS=$(git log $BASE_SHA --since="$SINCE_DATE" --oneline)
           COMMIT_COUNT=$(echo "$RECENT_COMMITS" | wc -l)
           
-          echo "=== Commits from last 7 days ($COMMIT_COUNT total) ==="
+          echo "=== Commits from last 7 days on main ($COMMIT_COUNT total) ==="
           echo "$RECENT_COMMITS"
           
           # Generate unique branch name
@@ -57,15 +62,16 @@ jobs:
             echo "COMMIT_COUNT=$COMMIT_COUNT"
             echo "SINCE_DATE=$SINCE_DATE"
             echo "BRANCH_NAME=$BRANCH_NAME"
+            echo "BASE_SHA=$BASE_SHA"
           } >> $GITHUB_ENV
           
           # Check if we have changes to analyze
           if [ "$COMMIT_COUNT" -eq "0" ]; then
             echo "skip=true" >> $GITHUB_OUTPUT
-            echo "No commits in the last 7 days"
+            echo "No commits in the last 7 days on main branch"
           else
             echo "skip=false" >> $GITHUB_OUTPUT
-            echo "Found $COMMIT_COUNT commits to analyze"
+            echo "Found $COMMIT_COUNT commits to analyze on main"
           fi
 
       - name: Sync README with Claude and Create PR
@@ -76,85 +82,101 @@ jobs:
           timeout_minutes: "45"
           allowed_tools: "Bash(git config*),Bash(git checkout*),Bash(git branch*),Bash(git status),Bash(git log*),Bash(git diff*),Bash(git add*),Bash(git commit*),Bash(git push*),Bash(echo*),View,GlobTool,GrepTool,BatchTool,Edit,mcp__github__get_file_contents, mcp__github__create_branch,mcp__github__create_pull_request,mcp__github__add_issue_comment,mcp__github_file_ops__commit_files"
           direct_prompt: |
-            I need you to analyze the code changes from the last 7 days, update the README.md file, and create a separate pull request for the documentation updates.
+            I need you to analyze the code changes from the last 7 days on the main branch (excluding the current PR), update the README.md file, and create a separate pull request for the documentation updates.
             
-            **IMPORTANT**: You need to create a NEW BRANCH for the README updates, not work on the current branch.
+            **CRITICAL INSTRUCTIONS**:
+            - You are currently on commit ${{ env.BASE_SHA }} (main branch before the triggering PR)
+            - DO NOT include any changes from the triggering PR #${{ github.event.pull_request.number }}
+            - Only analyze changes that were already merged to main in the last 7 days
+            - Create a clean branch with ONLY README changes
             
             Please follow these steps EXACTLY:
             
-            **Step 1: Setup Git Configuration**
-            1. Run `git config --global user.name 'Claude Bot'`
-            2. Run `git config --global user.email 'claude-bot@anthropic.com'`
+            **Step 1: Verify Clean State**
+            1. Run `git log --oneline -5` to confirm you're on the clean main branch
+            2. Run `git status` to verify clean working directory
+            3. Run `git config --global user.name 'Claude Bot'`
+            4. Run `git config --global user.email 'claude-bot@anthropic.com'`
                       
-            **Step 2: Analyze Recent Changes**
-            3. Run `git log --since='${{ env.SINCE_DATE }}' --oneline` to see commits from the last week
-            4. Run `git log --since='${{ env.SINCE_DATE }}' --name-only --pretty=format:` to see which files changed
-            5. Run `git diff --name-only HEAD~${{ env.COMMIT_COUNT }}..HEAD 2>/dev/null || git log --name-only --pretty=format: -n ${{ env.COMMIT_COUNT }}` for changed files list
-            6. Run `git diff HEAD~${{ env.COMMIT_COUNT }}..HEAD 2>/dev/null || git show --name-only` to see actual code changes
+            **Step 2: Analyze Recent Changes on Main Branch Only**
+            5. Run `git log --since='${{ env.SINCE_DATE }}' --oneline` to see commits from the last week
+            6. Run `git log --since='${{ env.SINCE_DATE }}' --name-only --pretty=format: | sort -u | grep -v '^$'` to see which files changed
+            7. Run `git log --since='${{ env.SINCE_DATE }}' --pretty=format:"%h %s" -n 10` to see recent commit messages
+            8. Run `git diff HEAD~${{ env.COMMIT_COUNT }}..HEAD` to see actual code changes (if ${{ env.COMMIT_COUNT }} > 0)
             
-            **Step 4: README Analysis & Update**
-            7. Read and understand the current README.md content
-            8. Analyze all the changes from the past 7 days to understand what functionality has been added, modified, or removed
-
-            **Step 2: Verify Current State and Create New Branch**
-            9. Run `git status` to see current state
-            10. Run `git branch --show-current` to see current branch
+            **Step 3: README Analysis & Update**
+            9. Read and understand the current README.md content
+            10. Analyze all the changes from the past 7 days to understand what functionality has been added, modified, or removed
             11. Create and switch to new branch: `git checkout -b ${{ env.BRANCH_NAME }}`
             12. Verify you're on the new branch: `git branch --show-current`
             13. Update the README.md to reflect these accumulated changes (maintain existing structure and tone)
             
-            **Step 5: Commit and Push Changes**
+            **Step 4: Commit ONLY README Changes**
             14. If you made changes to README.md:
-                - Run `git add README.md`
-                - Run `git commit -m "docs: update README based on 7-day analysis - [brief description of changes]"`
+                - Run `git add README.md` (ONLY add README.md)
+                - Run `git status` to verify only README.md is staged
+                - Run `git commit -m "docs: update README based on 7-day main branch analysis
+                
+                Updates reflect recent changes merged to main:
+                - [specific change 1]
+                - [specific change 2]
+                - [etc.]
+                
+                Analysis period: ${{ env.SINCE_DATE }} to now
+                Commits analyzed: ${{ env.COMMIT_COUNT }}"`
                 - Run `git push --set-upstream origin ${{ env.BRANCH_NAME }}`
                 - Run `echo "README updated, committed, and pushed successfully"`
             15. If no changes were needed:
                 - Run `echo "No README updates required - documentation is current"`
                 - SKIP the remaining steps
             
-            **Step 6: Create Pull Request (only if changes were made)**
-            16. Create PR using GitHub CLI:
+            **Step 5: Create Clean Pull Request (only if changes were made)**
+            16. Create PR targeting main branch:
                 ```bash
                 gh pr create \
-                  --title "📝 README Update - 7-day Analysis (triggered by PR #${{ github.event.pull_request.number }})" \
+                  --title "📝 README Update - 7-day Analysis" \
                   --body "## 🤖 Automated README Update
                 
-                This PR contains README updates based on analysis of the last 7 days of changes.
+                This PR contains README updates based on analysis of the last 7 days of changes **already merged to main**.
                 
                 **Triggered by:** PR #${{ github.event.pull_request.number }} - \"${{ github.event.pull_request.title }}\"
                 
-                **Analysis Period:** Last 7 days (since ${{ env.SINCE_DATE }})
+                **Analysis Period:** ${{ env.SINCE_DATE }} to now
                 
-                **Changes Analyzed:** ${{ env.COMMIT_COUNT }} commits
+                **Base Commit:** ${{ env.BASE_SHA }}
                 
-                ### Summary of Recent Activity 
+                **Changes Analyzed:** ${{ env.COMMIT_COUNT }} commits on main branch
                 
-                The README has been updated to reflect recent development changes and improvements.
-                Why These README Changes Were Necessary
+                ### What This PR Contains
+                
+                - ✅ README.md updates only
+                - ✅ Based on changes already in main branch
+                - ✅ No code changes from triggering PR included
+                
+                ### Recent Activity Reflected in README
+                
+                [Claude will list the specific changes found during analysis]
                 
                 ---
                 
-                *This PR was automatically created by Claude based on recent repository activity.*" \
+                *This PR contains only documentation updates and can be safely merged independently of the triggering PR.*" \
                   --base main \
                   --head ${{ env.BRANCH_NAME }} \
                   --label "documentation,automated,readme-update"
                 ```
             
-            **Guidelines:**
-            - Focus on consolidating changes rather than individual commits
-            - Update multiple README sections if needed (installation, usage, API docs, features, etc.)
-            - Maintain the existing README structure and tone
-            - Be specific about what changed and include examples for new features
-            - Use clear, descriptive commit messages
+            **Critical Rules:**
+            - Only analyze commits already on main branch (before the triggering PR)
+            - Create a branch with ONLY README changes
+            - Do not include any changes from PR #${{ github.event.pull_request.number }}
+            - The new PR should be independent and mergeable regardless of the triggering PR status
             
             **Context:**
+            - Base commit: ${{ env.BASE_SHA }} (main before triggering PR)
             - Analysis period: Last 7 days (since ${{ env.SINCE_DATE }})
-            - Total commits found: ${{ env.COMMIT_COUNT }}
+            - Total commits on main: ${{ env.COMMIT_COUNT }}
             - New branch name: ${{ env.BRANCH_NAME }}
-            - Triggering PR: #${{ github.event.pull_request.number }} - "${{ github.event.pull_request.title }}"
-            
-            **CRITICAL**: Make sure you create the new branch BEFORE making any changes, and push to that branch, not the current one!
+            - Triggering PR: #${{ github.event.pull_request.number }} (excluded from analysis)
 
       - name: Handle no changes case
         if: steps.analyze-changes.outputs.skip == 'true'
@@ -170,9 +192,14 @@ jobs:
               issue_number: prNumber,
               body: `## ℹ️ No README Update Needed
               
-              I analyzed the repository but found no commits in the last 7 days that would require README updates.
+              I analyzed the main branch but found no commits in the last 7 days that would require README updates.
               
-              The current README.md appears to be up to date.
+              The current README.md appears to be up to date with recent changes.
+              
+              **Analysis Details:**
+              - Base commit: ${{ env.BASE_SHA }}
+              - Period: Last 7 days
+              - Commits found: 0
               
               ---
               
