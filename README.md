@@ -21,14 +21,17 @@ The **Claude README Sync** workflow automatically analyzes repository changes an
 
 ### 📊 Comprehensive Change Tracking
 - **7-Day Analysis Window**: Analyzes all changes from the past week for comprehensive updates
+- **Clean Base Analysis**: Uses the base branch SHA to ensure analysis excludes triggering PR changes
 - **File Change Detection**: Identifies and analyzes modified files and their impact
 - **Commit History Review**: Examines commit messages and code changes to understand development context
+- **Precise Scope Control**: Analyzes only commits already merged to main branch, maintaining documentation accuracy
 
 ## Technical Implementation
 
 ### Workflow Configuration
 - **Trigger**: Pull request events (`opened`, `synchronize`)
 - **Runtime**: Ubuntu-latest with full repository history
+- **Base Analysis**: Uses `github.event.pull_request.base.sha` for clean main branch analysis
 - **Permissions**: Write access to contents and pull requests
 - **Timeout**: 45-minute maximum execution time
 
@@ -40,6 +43,7 @@ The Claude AI instance has access to:
 - **Batch Operations**: Multiple file operations for efficient processing
 
 ### Environment Variables
+- `BASE_SHA`: Clean base branch commit hash (main branch before triggering PR)
 - `SINCE_DATE`: Analysis start date (7 days ago)
 - `COMMIT_COUNT`: Number of commits to analyze
 - `BRANCH_NAME`: Unique timestamped branch for documentation updates
@@ -62,8 +66,8 @@ Documentation branches follow the pattern: `readme-sync-YYYYMMDD-HHMMSS`
 ## Configuration
 
 ### Required Secrets
-- `ANTHROPIC_API_KEY2`: API key for Claude AI integration
-- `GITHUB_TOKEN`: Automatically provided by GitHub Actions
+- `ANTHROPIC_API_KEY2`: Primary API key for Claude AI integration (enhanced version)
+- `GITHUB_TOKEN`: Automatically provided by GitHub Actions for repository operations
 
 ### Workflow Customization
 The analysis period, tools, and behavior can be modified in `.github/workflows/hi.yml`:
