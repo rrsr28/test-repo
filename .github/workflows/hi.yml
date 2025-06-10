@@ -3,7 +3,7 @@ name: Claude README Sync (Scheduled Weekly)
 on:
   schedule:
     # Runs at 12:30 PM IST every Monday (07:00 UTC, accounting for IST = UTC+5:30)
-    - cron: '29 12 * * 1'
+    - cron: '15 14 * * 1'
   workflow_dispatch:  # Allow manual triggering for testing
 
 jobs:
