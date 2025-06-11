@@ -3,7 +3,7 @@ name: Claude README Sync (Scheduled Weekly) 3
 on:
   schedule:
     # Runs at 12:30 PM IST every Monday (07:00 UTC, accounting for IST = UTC+5:30)
-    - cron: '46 8 * * *'
+    - cron: '2 9 * * *'
     
 jobs:
   readme-sync:
@@ -82,7 +82,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           allowed_tools: "Bash(git config*),Bash(git checkout*),Bash(git branch*),Bash(git status),Bash(git log*),Bash(git diff*),Bash(git add*),Bash(git commit*),Bash(git push*),Bash(echo*),View,GlobTool,GrepTool,BatchTool,Edit,mcp__github__get_file_contents, mcp__github__create_branch,mcp__github__create_pull_request,mcp__github__add_issue_comment,mcp__github_file_ops__commit_files"
           timeout_minutes: "45"
-          prompt: |
+          direct_prompt: |
             I need you to analyze the code changes from the last 7 days on the main branch, update the README.md file, and create a pull request for the documentation updates.
             
             **SCHEDULED WEEKLY README SYNC**
