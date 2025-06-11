@@ -80,6 +80,8 @@ jobs:
         uses: anthropics/claude-code-base-action@beta
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CLAUDE_SKIP_PERMISSIONS: "true"
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           timeout_minutes: "45"
@@ -91,6 +93,7 @@ jobs:
             - This is a scheduled job running every Monday at 12:30 PM IST
             - You are currently on the main branch at commit ${{ env.MAIN_SHA }}
             - Analyze the last 7 days of changes and update documentation accordingly
+            - **IMPORTANT**: You have full bash permissions - no need to ask for permission
             
             Please follow these steps EXACTLY:
             
@@ -134,8 +137,9 @@ jobs:
                 - SKIP the remaining steps
             
             **Step 5: Create Weekly Update Pull Request (only if changes were made)**
-            16. Create PR targeting main branch:
+            16. **OPTION A - Use GitHub CLI (preferred):**
                 ```bash
+                export GH_TOKEN="${GITHUB_TOKEN}"
                 gh pr create \
                   --title "📝 Weekly README Update - $(date +'%Y-%m-%d')" \
                   --body "## 🤖 Automated Weekly README Update
@@ -159,7 +163,7 @@ jobs:
                 
                 ### Recent Activity Reflected in README
                 
-                [Claude will list the specific changes found during analysis]
+                [List the specific changes found during analysis]
                 
                 ### Files Changed in Last 7 Days
                 
@@ -173,12 +177,17 @@ jobs:
                   --label "documentation,automated,weekly-sync,readme-update"
                 ```
             
+            **OPTION B - If GitHub CLI fails, use MCP tools:**
+                - Use `mcp__github__create_pull_request` as backup
+                - Provide same title and body content
+            
             **Context:**
             - Current main commit: ${{ env.MAIN_SHA }}
             - Analysis period: Last 7 days (since ${{ env.SINCE_DATE }})
             - Total commits on main: ${{ env.COMMIT_COUNT }}
             - New branch name: ${{ env.BRANCH_NAME }}
             - Execution time: Monday 12:30 PM IST (scheduled)
+            - GitHub Token is available as $GITHUB_TOKEN environment variable
 
       - name: Handle no changes case
         if: steps.analyze-changes.outputs.skip == 'true'
