@@ -78,6 +78,8 @@ jobs:
       - name: Sync README with Claude and Create PR
         if: steps.analyze-changes.outputs.skip != 'true'
         uses: anthropics/claude-code-base-action@beta
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           timeout_minutes: "45"
