@@ -81,7 +81,7 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           timeout_minutes: "45"
-          allowed_tools: "Bash,git,gh,View,Glob,Grep,Batch,Edit"
+          allowed_tools: "Bash(git:*),Bash(gh:*),Bash(date:*),Bash(echo:*),View,Edit,Write,GlobTool,GrepTool,BatchTool,LS,mcp__github__create_pull_request,mcp__github__get_repository_info,mcp__github__get_commit_details,mcp__github__get_file_content"
           prompt: |
             I need you to analyze the code changes from the last 7 days on the main branch, update the README.md file, and create a pull request for the documentation updates.
             
