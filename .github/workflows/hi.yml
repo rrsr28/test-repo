@@ -133,12 +133,9 @@ jobs:
                 - SKIP the remaining steps
             
             **Step 5: Create Weekly Update Pull Request (only if changes were made)**
-            16. **OPTION A - Use GitHub CLI (preferred):**
-                ```bash
-                export GH_TOKEN="${GITHUB_TOKEN}"
-                gh pr create \
-                  --title "📝 Weekly README Update - $(date +'%Y-%m-%d')" \
-                  --body "## 🤖 Automated Weekly README Update
+            16. Use `mcp__github__create_pull_request` to create the pull request with:
+                - Title: "📝 Weekly README Update - $(date +'%Y-%m-%d')"
+                - Body: "## 🤖 Automated Weekly README Update
                 
                 This PR contains README updates based on analysis of the last 7 days of changes merged to main.
                 
@@ -163,19 +160,14 @@ jobs:
                 
                 ### Files Changed in Last 7 Days
                 
-                $(echo '${{ env.CHANGED_FILES }}' | sed 's/^/- /')
+                ${{ env.CHANGED_FILES }}
                 
                 ---
                 
-                *This is an automated weekly README sync. The PR is safe to merge and will keep documentation current with recent development activity.*" \
-                  --base main \
-                  --head ${{ env.BRANCH_NAME }} \
-                  --label "documentation,automated,weekly-sync,readme-update"
-                ```
-            
-            **OPTION B - If GitHub CLI fails, use MCP tools:**
-                - Use `mcp__github__create_pull_request` as backup
-                - Provide same title and body content
+                *This is an automated weekly README sync. The PR is safe to merge and will keep documentation current with recent development activity.*"
+                - Base: main
+                - Head: ${{ env.BRANCH_NAME }}
+                - Labels: documentation,automated,weekly-sync,readme-update
             
             **Context:**
             - Current main commit: ${{ env.MAIN_SHA }}
