@@ -76,9 +76,10 @@ jobs:
 
       - name: Sync README with Claude and Create PR
         if: steps.analyze-changes.outputs.skip != 'true'
-        uses: anthropics/claude-code-action@beta
+        uses: anthropics/claude-code-base-action@beta
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           allowed_tools: "Bash(git config*),Bash(git checkout*),Bash(git branch*),Bash(git status),Bash(git log*),Bash(git diff*),Bash(git add*),Bash(git commit*),Bash(git push*),Bash(echo*),View,GlobTool,GrepTool,BatchTool,Edit,mcp__github__get_file_contents, mcp__github__create_branch,mcp__github__create_pull_request,mcp__github__add_issue_comment,mcp__github_file_ops__commit_files"
           timeout_minutes: "45"
           prompt: |
