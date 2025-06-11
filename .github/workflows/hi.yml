@@ -3,7 +3,7 @@ name: Claude README Sync (Scheduled Weekly)
 on:
   schedule:
     # Runs at 12:30 PM IST every Monday (07:00 UTC, accounting for IST = UTC+5:30)
-    - cron: '47 5 * * *'
+    - cron: '56 5 * * *'
   workflow_dispatch:  # Allow manual triggering for testing
 
 jobs:
@@ -80,7 +80,6 @@ jobs:
         uses: anthropics/claude-code-base-action@beta
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
           timeout_minutes: "45"
           allowed_tools: "Bash(*),View,Edit,Write,GlobTool,GrepTool,BatchTool,LS,mcp__github__create_pull_request,mcp__github__get_repository_info,mcp__github__get_commit_details,mcp__github__get_file_content"
           prompt: |
