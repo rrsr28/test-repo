@@ -3,7 +3,7 @@ name: Claude README Sync (Scheduled Weekly) 2
 on:
   schedule:
     # Runs at 12:30 PM IST every Monday (07:00 UTC, accounting for IST = UTC+5:30)
-    - cron: '2 9 * * *'
+    - cron: '14 9 * * *'
     
 jobs:
   readme-sync:
