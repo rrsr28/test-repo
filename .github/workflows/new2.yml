@@ -2,7 +2,7 @@ name: Weekly README Update
 on:
   schedule:
     # Every Monday at 2:15 AM UTC
-    - cron: '2 6 * * *'
+    - cron: '45 7 * * *'
   workflow_dispatch:
     inputs:
       force_update:
