@@ -2,7 +2,7 @@ name: Weekly README Update
 on:
   schedule:
     # Every Monday at 2:15 AM UTC
-    - cron: '47 0 * * 1'
+    - cron: '58 0 * * *'
   workflow_dispatch:
     inputs:
       force_update:
@@ -132,27 +132,30 @@ jobs:
           # Push the branch
           git push origin "$BRANCH_NAME"
           
+          # Get current date for PR body
+          CURRENT_DATE=$(date +'%Y-%m-%d %H:%M UTC')
+          
           # Create PR using GitHub CLI (included in runner)
           gh pr create \
             --title "📚 Weekly README Update - ${{ steps.datetime.outputs.datetime }}" \
             --body "## 🤖 Automated Weekly README Update
 
-**Analysis Details:**
-- **Commits analyzed:** ${{ steps.changes.outputs.commits }}
-- **Analysis date:** $(date +'%Y-%m-%d %H:%M UTC')
-- **Claude model:** claude-sonnet-4
-- **Branch:** readme-update-${{ steps.datetime.outputs.datetime }}
-
-**What was updated:**
-- Only sections of README.md that correspond to actual code changes from the past week
-- Last updated timestamp
-
-**Security:**
-- Uses only official Anthropic Claude Code action
-- Temporary analysis files are automatically cleaned up
-- No third-party actions used
-
-Please review the changes before merging." \
+          **Analysis Details:**
+          - **Commits analyzed:** ${{ steps.changes.outputs.commits }}
+          - **Analysis date:** $CURRENT_DATE
+          - **Claude model:** claude-sonnet-4
+          - **Branch:** readme-update-${{ steps.datetime.outputs.datetime }}
+          
+          **What was updated:**
+          - Only sections of README.md that correspond to actual code changes from the past week
+          - Last updated timestamp
+          
+          **Security:**
+          - Uses only official Anthropic Claude Code action
+          - Temporary analysis files are automatically cleaned up
+          - No third-party actions used
+          
+          Please review the changes before merging." \
             --label "documentation,automated,weekly-update" \
             --assignee "${{ github.repository_owner }}"
           
