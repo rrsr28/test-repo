@@ -1,4 +1,4 @@
-name: Weekly README Update Original
+name: Weekly README Update
 on:
   schedule:
     # Every Monday at 2:15 AM UTC
