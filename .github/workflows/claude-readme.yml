@@ -188,9 +188,10 @@ jobs:
             
             # Capture the summary if Claude created it
             if [[ -f readme_changes_summary.txt ]]; then
-              echo "CHANGE_SUMMARY<<EOF" >> $GITHUB_OUTPUT
-              cat readme_changes_summary.txt >> $GITHUB_OUTPUT
-              echo "EOF" >> $GITHUB_OUTPUT
+              CHANGE_SUMMARY=$(cat readme_changes_summary.txt | sed ':a;N;$!ba;s/\n/\\n/g')
+              echo "CHANGE_SUMMARY=$CHANGE_SUMMARY" >> $GITHUB_OUTPUT
+              echo "=== CHANGE SUMMARY ==="
+              cat readme_changes_summary.txt
             else
               echo "CHANGE_SUMMARY=Claude updated README.md based on weekly code analysis" >> $GITHUB_OUTPUT
             fi
