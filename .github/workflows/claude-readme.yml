@@ -2,7 +2,7 @@ name: Weekly README Update Original
 on:
   schedule:
     # Every Monday at 2:15 AM UTC
-    - cron: '21 11 * * *'  # Fixed: added missing space between * and *
+    - cron: '57 11 * * *'  # Fixed: added missing space between * and *
   workflow_dispatch:
     inputs:
       force_update:
@@ -228,7 +228,7 @@ jobs:
           CURRENT_DATE=$(date +'%Y-%m-%d %H:%M UTC')
           
           gh pr create \
-            --title "📚 Weekly README Update - Week of ${{ steps.changes.outputs.last_week }}" \
+            --title "📚 Weekly README Update - ${{ steps.changes.outputs.current_date }}" \
             --body "## 🤖 Automated Weekly README Update
           ### 📊 Analysis Overview
           - **Analysis Period:** ${{ steps.changes.outputs.last_week_iso }} → ${{ steps.changes.outputs.current_date }}
