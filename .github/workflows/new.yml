@@ -2,7 +2,7 @@ name: Weekly AI-Powered README Update
 on:
   schedule:
     # Run every Monday at 2:15 AM UTC (avoids peak times)
-    - cron: '30 0 * * *'
+    - cron: '28 1 * * *'
   workflow_dispatch:
     inputs:
       force_update:
