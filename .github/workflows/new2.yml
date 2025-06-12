@@ -1,0 +1,168 @@
+name: Weekly README Update
+on:
+  schedule:
+    # Every Monday at 2:15 AM UTC
+    - cron: '47 0 * * 1'
+  workflow_dispatch:
+    inputs:
+      force_update:
+        description: 'Force update even if no changes'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Get current datetime for branch
+        id: datetime
+        run: echo "datetime=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+      
+      - name: Analyze weekly changes
+        id: changes
+        run: |
+          LAST_WEEK=$(date -d '7 days ago' '+%Y-%m-%d')
+          COMMIT_COUNT=$(git rev-list --count --since="$LAST_WEEK" HEAD)
+          echo "commits=$COMMIT_COUNT" >> $GITHUB_OUTPUT
+          
+          # Generate temporary files for analysis (will be cleaned up)
+          git diff --name-only HEAD "HEAD@{7 days ago}" > /tmp/changed_files.txt
+          git diff HEAD "HEAD@{7 days ago}" --output=/tmp/weekly_changes.diff
+          git log --since="$LAST_WEEK" --pretty=format:"%h %s by %an" > /tmp/recent_commits.txt
+          
+          # Copy to workspace for Claude (these won't be committed)
+          cp /tmp/changed_files.txt ./changed_files_temp.txt
+          cp /tmp/weekly_changes.diff ./weekly_changes_temp.diff
+          cp /tmp/recent_commits.txt ./recent_commits_temp.txt
+          
+          echo "Found $COMMIT_COUNT commits to analyze"
+          echo "Temporary analysis files created"
+      
+      - name: Skip if no changes
+        if: steps.changes.outputs.commits == '0' && github.event.inputs.force_update != 'true'
+        run: |
+          echo "No commits in the last week. Skipping update."
+          exit 0
+      
+      - name: Update README with Claude Code
+        uses: anthropics/claude-code-base-action@beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          anthropic_model: "claude-sonnet-4-20250514"
+          timeout_minutes: 10
+          allowed_tools: "View,Edit,Bash(git:*)"
+          prompt: |
+            Analyze the code changes from the past week and update README.md intelligently.
+            
+            CONTEXT:
+            - ${{ steps.changes.outputs.commits }} commits were made in the past week
+            - weekly_changes_temp.diff contains the detailed git diff
+            - recent_commits_temp.txt contains commit messages for context
+            - changed_files_temp.txt lists all files that changed
+            
+            INSTRUCTIONS:
+            1. First, read the current README.md to understand its structure
+            2. Analyze weekly_changes_temp.diff to understand what code actually changed
+            3. Review recent_commits_temp.txt for context about the changes
+            4. Update ONLY the sections of README.md that correspond to the actual code changes:
+               - If API/endpoints changed → update API documentation section
+               - If dependencies changed → update installation/requirements
+               - If new features added → update features list
+               - If configuration changed → update configuration section
+               - If examples changed → update usage examples
+            5. Preserve all existing formatting, badges, links, and structure
+            6. Add or update "Last Updated" section with current date
+            7. Do NOT make random changes or update unrelated sections
+            
+            IMPORTANT:
+            - Be very selective - only update what actually corresponds to code changes
+            - Maintain the existing tone, style, and format of the README
+            - Keep all changes concise and directly related to the code modifications
+            - If no relevant changes are found, make minimal updates (just timestamp)
+      
+      - name: Clean up temporary files
+        run: |
+          # Remove temporary analysis files (they should never be committed)
+          rm -f ./changed_files_temp.txt
+          rm -f ./weekly_changes_temp.diff  
+          rm -f ./recent_commits_temp.txt
+          rm -f /tmp/changed_files.txt
+          rm -f /tmp/weekly_changes.diff
+          rm -f /tmp/recent_commits.txt
+          echo "Temporary analysis files cleaned up"
+      
+      - name: Check if README was modified
+        id: readme_check
+        run: |
+          if [[ -n $(git status --porcelain README.md) ]]; then
+            echo "readme_changed=true" >> $GITHUB_OUTPUT
+            echo "README.md has been modified"
+          else
+            echo "readme_changed=false" >> $GITHUB_OUTPUT
+            echo "README.md was not modified"
+          fi
+      
+      - name: Create Pull Request
+        if: steps.readme_check.outputs.readme_changed == 'true'
+        run: |
+          # Configure git for the bot
+          git config --local user.email "claude-bot@users.noreply.github.com"
+          git config --local user.name "Claude README Bot"
+          
+          # Create and switch to new branch
+          BRANCH_NAME="readme-update-${{ steps.datetime.outputs.datetime }}"
+          git checkout -b "$BRANCH_NAME"
+          
+          # Add and commit only the README
+          git add README.md
+          git commit -m "docs: automated weekly README update - analyzed ${{ steps.changes.outputs.commits }} commits"
+          
+          # Push the branch
+          git push origin "$BRANCH_NAME"
+          
+          # Create PR using GitHub CLI (included in runner)
+          gh pr create \
+            --title "📚 Weekly README Update - ${{ steps.datetime.outputs.datetime }}" \
+            --body "## 🤖 Automated Weekly README Update
+
+**Analysis Details:**
+- **Commits analyzed:** ${{ steps.changes.outputs.commits }}
+- **Analysis date:** $(date +'%Y-%m-%d %H:%M UTC')
+- **Claude model:** claude-sonnet-4
+- **Branch:** readme-update-${{ steps.datetime.outputs.datetime }}
+
+**What was updated:**
+- Only sections of README.md that correspond to actual code changes from the past week
+- Last updated timestamp
+
+**Security:**
+- Uses only official Anthropic Claude Code action
+- Temporary analysis files are automatically cleaned up
+- No third-party actions used
+
+Please review the changes before merging." \
+            --label "documentation,automated,weekly-update" \
+            --assignee "${{ github.repository_owner }}"
+          
+          echo "✅ Pull Request created successfully!"
+          echo "Branch: readme-update-${{ steps.datetime.outputs.datetime }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: No changes made
+        if: steps.readme_check.outputs.readme_changed == 'false'
+        run: |
+          echo "ℹ️ No README updates needed based on this week's code changes"
+          echo "The analysis found no relevant changes that require documentation updates"
