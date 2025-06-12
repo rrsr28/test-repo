@@ -2,7 +2,7 @@ name: Weekly README Update
 on:
   schedule:
     # Every Monday at 2:15 AM UTC
-    - cron: '15 9 * * *'  # Fixed: added missing space between * and *
+    - cron: '30 10 * * *'  # Fixed: added missing space between * and *
   workflow_dispatch:
     inputs:
       force_update:
@@ -147,10 +147,6 @@ jobs:
             - Add concrete, working examples for new features
             - Update version info to reflect current state
             
-            **Required Updates:**
-            - Add/update a "Last Updated" section with current date (YYYY-MM-DD format)
-            - Update any sections that correspond to the categorized changes above
-            
             ### 4. GENERATE CHANGE SUMMARY
             At the end of your work, create a file called `readme_changes_summary.txt` with:
             ```
@@ -220,14 +216,6 @@ jobs:
           
           # Create detailed commit message
           COMMIT_MSG="docs: weekly README update - analyzed ${{ steps.changes.outputs.commits }} commits
-          
-          📊 Analysis Summary:
-          - Period: ${{ steps.changes.outputs.last_week_iso }} to ${{ steps.changes.outputs.current_date }}
-          - Commits: ${{ steps.changes.outputs.commits }}
-          - Files changed: ${{ steps.changes.outputs.changed_files }}
-          - Code changes: +${{ steps.changes.outputs.additions }}/-${{ steps.changes.outputs.deletions }} lines
-          
-          🤖 Updated by Claude Code using claude-sonnet-4 model
           📅 Generated: $(date +'%Y-%m-%d %H:%M UTC')"
           
           git commit -m "$COMMIT_MSG"
@@ -252,19 +240,7 @@ jobs:
           \`\`\`
           ${{ steps.readme_check.outputs.CHANGE_SUMMARY }}
           \`\`\`
-          ### 🔍 How This Works
-          This automated update analyzes the past week's commits and intelligently updates only the README sections that correspond to actual code changes. It preserves the existing documentation structure and tone while ensuring accuracy.
-          ### 🛡️ Security & Reliability  
-          - ✅ Uses official Anthropic Claude Code action
-          - ✅ Temporary analysis files automatically cleaned up
-          - ✅ Only modifies README.md, never touches other files
-          - ✅ All changes based on actual git history analysis
-          - ✅ No third-party actions used
-          ### 📋 Review Checklist
-          - [ ] Changes accurately reflect the code modifications
-          - [ ] No outdated information introduced
-          - [ ] Code examples (if any) are functional
-          - [ ] Formatting and style remain consistent
+         
           **Branch:** \`readme-update-${{ steps.datetime.outputs.datetime }}\`
           **Auto-assigned to:** @${{ github.repository_owner }}" \
             --assignee "${{ github.repository_owner }}"
