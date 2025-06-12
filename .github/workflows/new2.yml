@@ -156,7 +156,6 @@ jobs:
           - No third-party actions used
           
           Please review the changes before merging." \
-            --label "documentation,automated,weekly-update" \
             --assignee "${{ github.repository_owner }}"
           
           echo "✅ Pull Request created successfully!"
