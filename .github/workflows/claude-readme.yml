@@ -2,7 +2,7 @@ name: Weekly README Update Original
 on:
   schedule:
     # Every Monday at 2:15 AM UTC
-    - cron: '59 7 * * *'  # Fixed: added missing space between * and *
+    - cron: '35 8 * * *'  # Fixed: added missing space between * and *
   workflow_dispatch:
     inputs:
       force_update:
